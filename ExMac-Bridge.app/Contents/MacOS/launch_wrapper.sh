@@ -47,6 +47,18 @@ fi
 # 描画サーバーの環境変数（Quartz/X11等に依存する場合）
 export DISPLAY=:0
 
+# Winetricksによる初回セットアップ（文字化け、音声パッチ）
+if [ ! -f "$WINEPREFIX/.winetricks_done" ]; then
+    /opt/homebrew/bin/winetricks -q fakejapanese xact dsound xaudio2_7 >/dev/null 2>&1
+    touch "$WINEPREFIX/.winetricks_done"
+fi
+
+# キーマッパーの起動
+if [ -x "$APP_ROOT/MacOS/KeyMapper" ]; then
+    "$APP_ROOT/MacOS/KeyMapper" "wine" &
+    MAPPER_PID=$!
+fi
+
 # 実行前チェック
 if [ ! -f "$TARGET_EXE" ]; then
     osascript -e 'display alert "ExMac-Bridge Error" message "実行対象の .exe ファイルが見つかりません。"'
@@ -83,4 +95,7 @@ if [ $WINE_EXIT_CODE -ne 0 ]; then
 fi
 
 rm -f "$TMP_STDERR"
+if [ ! -z "$MAPPER_PID" ]; then
+    kill -9 $MAPPER_PID 2>/dev/null
+fi
 exit $WINE_EXIT_CODE

@@ -115,11 +115,20 @@ class DropView: NSView {
                     "$WINE_BIN" regedit "$WINEPREFIX/font_fix.reg" >/dev/null 2>&1
                 fi
                 export DISPLAY=:0
+                if [ ! -f "$WINEPREFIX/.winetricks_done" ]; then
+                    /opt/homebrew/bin/winetricks -q fakejapanese xact dsound xaudio2_7 >/dev/null 2>&1
+                    touch "$WINEPREFIX/.winetricks_done"
+                fi
+                if [ -x "$APP_ROOT/MacOS/KeyMapper" ]; then
+                    "$APP_ROOT/MacOS/KeyMapper" "wine" &
+                    MAPPER_PID=$!
+                fi
                 (
                     sleep 1.5
                     osascript -e 'tell application "System Events" to set frontmost of every process whose name contains "wine" to true' 2>/dev/null
                 ) &
                 script -q /tmp/wine_error.log "$WINE_BIN" "$TARGET_EXE" > /dev/null
+                if [ ! -z "$MAPPER_PID" ]; then kill -9 $MAPPER_PID 2>/dev/null; fi
                 """
                 try scriptContent.write(to: scriptURL, atomically: true, encoding: .utf8)
             }
@@ -128,6 +137,24 @@ class DropView: NSView {
             var attributes = try fileManager.attributesOfItem(atPath: scriptURL.path)
             attributes[.posixPermissions] = NSNumber(value: 0o755)
             try fileManager.setAttributes(attributes, ofItemAtPath: scriptURL.path)
+            
+            // キーマッパーのコピー
+            let mapperURL = macosURL.appendingPathComponent("KeyMapper")
+            let sourceMapper = Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/KeyMapper")
+            if fileManager.fileExists(atPath: sourceMapper.path) {
+                try fileManager.copyItem(at: sourceMapper, to: mapperURL)
+                var attr = try fileManager.attributesOfItem(atPath: mapperURL.path)
+                attr[.posixPermissions] = NSNumber(value: 0o755)
+                try fileManager.setAttributes(attr, ofItemAtPath: mapperURL.path)
+            } else {
+                let localMapper = URL(fileURLWithPath: "ExMac-Bridge.app/Contents/MacOS/KeyMapper")
+                if fileManager.fileExists(atPath: localMapper.path) {
+                    try fileManager.copyItem(at: localMapper, to: mapperURL)
+                    var attr = try fileManager.attributesOfItem(atPath: mapperURL.path)
+                    attr[.posixPermissions] = NSNumber(value: 0o755)
+                    try fileManager.setAttributes(attr, ofItemAtPath: mapperURL.path)
+                }
+            }
             
             // アイコン抽出処理
             let iconTmpDir = targetAppURL.appendingPathComponent("icon_temp")
