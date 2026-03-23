@@ -13,11 +13,11 @@ func CGEventCallback(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent, 
         var newKeyCode = keyCode
         
         switch keyCode {
-        case 126: newKeyCode = 13 // Up Arrow -> W
-        case 125: newKeyCode = 1  // Down Arrow -> S
-        case 123: newKeyCode = 0  // Left Arrow -> A
-        case 124: newKeyCode = 2  // Right Arrow -> D
-        case 49: newKeyCode = 6   // Space -> Z
+        case 126: newKeyCode = 91 // Up Arrow -> Numpad 8 (Up)
+        case 125: newKeyCode = 84 // Down Arrow -> Numpad 2 (Down)
+        case 123: newKeyCode = 86 // Left Arrow -> Numpad 4 (Left)
+        case 124: newKeyCode = 88 // Right Arrow -> Numpad 6 (Right)
+        // Space(49) は横取りによる文字化けを防ぐためそのまま（Wineバグ回避は入力リダイレクト等で対応）
         default: break
         }
         
@@ -36,7 +36,13 @@ guard let eventTap = CGEvent.tapCreate(tap: .cghidEventTap,
                                        eventsOfInterest: CGEventMask(eventMask),
                                        callback: CGEventCallback,
                                        userInfo: nil) else {
-    let script = "display dialog \"キー変換機能を利用するには、Macの『システム設定』＞『プライバシーとセキュリティ』＞『アクセシビリティ』から許可を与え、アプリを再起動してください。許可しなくてもキー変換なしでゲームはプレイ可能です。\" with title \"アクセス権限が必要です\" buttons {\"OK\"} default button \"OK\" with icon caution"
+    // アクセシビリティ許可がない場合、設定画面を開くAppleScriptを実行
+    let script = """
+    display dialog "キーボード操作を最適化するため、Macの『アクセシビリティ』許可が必要です。\\n設定画面を開きますので、許可スイッチをONにしてゲームをもう一度起動してください。" with title "初期セットアップのお願い" buttons {"設定を開く", "後で"} default button "設定を開く" with icon caution
+    if button returned of result is "設定を開く" then
+        do shell script "open 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'"
+    end if
+    """
     let task = Process()
     task.launchPath = "/usr/bin/osascript"
     task.arguments = ["-e", script]
