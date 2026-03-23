@@ -115,9 +115,14 @@ class DropView: NSView {
                     "$WINE_BIN" regedit "$WINEPREFIX/font_fix.reg" >/dev/null 2>&1
                 fi
                 export DISPLAY=:0
-                if [ ! -f "$WINEPREFIX/.winetricks_done" ]; then
-                    /opt/homebrew/bin/winetricks -q fakejapanese xact dsound xaudio2_7 >/dev/null 2>&1
-                    touch "$WINEPREFIX/.winetricks_done"
+                if [ ! -f "$WINEPREFIX/.font_copied" ]; then
+                    JP_FONT=$(find /System/Library/Fonts /System/Library/Fonts/Supplemental -name "*Hiragino*Sans*.ttc" -o -name "*Osaka*" 2>/dev/null | head -n 1)
+                    if [ ! -z "$JP_FONT" ]; then
+                        cp "$JP_FONT" "$WINEPREFIX/drive_c/windows/Fonts/msgothic.ttc"
+                        cp "$JP_FONT" "$WINEPREFIX/drive_c/windows/Fonts/msmincho.ttc"
+                        cp "$JP_FONT" "$WINEPREFIX/drive_c/windows/Fonts/msgothic.ttf"
+                        touch "$WINEPREFIX/.font_copied"
+                    fi
                 fi
                 if [ -x "$APP_ROOT/MacOS/KeyMapper" ]; then
                     "$APP_ROOT/MacOS/KeyMapper" "wine" &

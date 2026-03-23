@@ -41,6 +41,7 @@ guard let eventTap = CGEvent.tapCreate(tap: .cghidEventTap,
     task.launchPath = "/usr/bin/osascript"
     task.arguments = ["-e", script]
     task.launch()
+    task.waitUntilExit()
     exit(1)
 }
 
