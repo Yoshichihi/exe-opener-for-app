@@ -24,11 +24,24 @@ export WINEPREFIX="$HOME/Library/Application Support/ExMac-Bridge/Prefixes/Defau
 export WINEDEBUG=-all  # デバッグ出力を抑制しパフォーマンス向上
 export LANG="ja_JP.UTF-8"
 export LC_ALL="ja_JP.UTF-8"
-export WINEDLLOVERRIDES="xaudio2_7=n,b"
+export WINEDLLOVERRIDES="xaudio2_7=n,b;dsound=b;dinput8=n,b;xinput1_3=n,b"
 
 # WINEPREFIXディレクトリの自動生成
 if [ ! -d "$WINEPREFIX" ]; then
-    mkdir -p "$WINEPREFIX"
+    mkdir -p "$WINEPREFIX/drive_c/windows/Fonts"
+    # Mac標準フォントをリンクし、日本語の文字化け（□□□化）を回避
+    ln -sf /System/Library/Fonts/* "$WINEPREFIX/drive_c/windows/Fonts/" 2>/dev/null
+    ln -sf /System/Library/Fonts/Supplemental/* "$WINEPREFIX/drive_c/windows/Fonts/" 2>/dev/null
+    
+    cat << 'EOF' > "$WINEPREFIX/font_fix.reg"
+REGEDIT4
+[HKEY_LOCAL_MACHINE\Software\Microsoft\Windows NT\CurrentVersion\FontSubstitutes]
+"MS Gothic"="Osaka"
+"MS PGothic"="Osaka"
+"MS UI Gothic"="Osaka"
+"MS Mincho"="Osaka"
+EOF
+    "$WINE_BIN" regedit "$WINEPREFIX/font_fix.reg" >/dev/null 2>&1
 fi
 
 # 描画サーバーの環境変数（Quartz/X11等に依存する場合）

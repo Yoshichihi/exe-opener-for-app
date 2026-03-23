@@ -99,11 +99,22 @@ class DropView: NSView {
                 WINE_BIN="/opt/homebrew/bin/wine"
                 export WINEPREFIX="$HOME/Library/Application Support/ExMac-Bridge/Prefixes/\(exeName)"
                 export WINEDEBUG=-all
-                if [ ! -d "$WINEPREFIX" ]; then mkdir -p "$WINEPREFIX"; fi
-                export DISPLAY=:0
                 export LANG="ja_JP.UTF-8"
                 export LC_ALL="ja_JP.UTF-8"
-                export WINEDLLOVERRIDES="xaudio2_7=n,b"
+                export WINEDLLOVERRIDES="xaudio2_7=n,b;dsound=b;dinput8=n,b;xinput1_3=n,b"
+                if [ ! -d "$WINEPREFIX" ]; then 
+                    mkdir -p "$WINEPREFIX/drive_c/windows/Fonts"
+                    ln -sf /System/Library/Fonts/* "$WINEPREFIX/drive_c/windows/Fonts/" 2>/dev/null
+                    ln -sf /System/Library/Fonts/Supplemental/* "$WINEPREFIX/drive_c/windows/Fonts/" 2>/dev/null
+                    echo 'REGEDIT4' > "$WINEPREFIX/font_fix.reg"
+                    echo '[HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows NT\\CurrentVersion\\FontSubstitutes]' >> "$WINEPREFIX/font_fix.reg"
+                    echo '"MS Gothic"="Osaka"' >> "$WINEPREFIX/font_fix.reg"
+                    echo '"MS PGothic"="Osaka"' >> "$WINEPREFIX/font_fix.reg"
+                    echo '"MS UI Gothic"="Osaka"' >> "$WINEPREFIX/font_fix.reg"
+                    echo '"MS Mincho"="Osaka"' >> "$WINEPREFIX/font_fix.reg"
+                    "$WINE_BIN" regedit "$WINEPREFIX/font_fix.reg" >/dev/null 2>&1
+                fi
+                export DISPLAY=:0
                 (
                     sleep 1.5
                     osascript -e 'tell application "System Events" to set frontmost of every process whose name contains "wine" to true' 2>/dev/null
