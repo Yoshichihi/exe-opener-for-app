@@ -22,6 +22,9 @@ fi
 # サンドボックス用のWINEPREFIX設定
 export WINEPREFIX="$HOME/Library/Application Support/ExMac-Bridge/Prefixes/Default"
 export WINEDEBUG=-all  # デバッグ出力を抑制しパフォーマンス向上
+export LANG="ja_JP.UTF-8"
+export LC_ALL="ja_JP.UTF-8"
+export WINEDLLOVERRIDES="xaudio2_7=n,b"
 
 # WINEPREFIXディレクトリの自動生成
 if [ ! -d "$WINEPREFIX" ]; then
@@ -49,8 +52,14 @@ fi
 
 TMP_STDERR=$(mktemp)
 
-# Wineの実行 (PyInstallerのWinError 6対策として、wine start経由でコンソールサブシステムを介在させる)
-"$WINE_BIN" start /wait /unix "$TARGET_EXE" > /dev/null 2> "$TMP_STDERR" < /dev/null
+# 強制フォーカス要求をバックグラウンドで仕掛ける（起動時の操作不能対策）
+(
+    sleep 1.5
+    osascript -e 'tell application "System Events" to set frontmost of every process whose name contains "wine" to true' 2>/dev/null
+) &
+
+# Wineの実行 (PTYを割り当ててPyInstallerのコンソール初期化エラーを完全に回避)
+script -q "$TMP_STDERR" "$WINE_BIN" "$TARGET_EXE" > /dev/null
 WINE_EXIT_CODE=$?
 
 # エラーハンドリング（MacネイティブのOSAScript通知へのブリッジ）

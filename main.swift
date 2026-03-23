@@ -101,7 +101,14 @@ class DropView: NSView {
                 export WINEDEBUG=-all
                 if [ ! -d "$WINEPREFIX" ]; then mkdir -p "$WINEPREFIX"; fi
                 export DISPLAY=:0
-                "$WINE_BIN" start /wait /unix "$TARGET_EXE" > /dev/null 2>&1 < /dev/null
+                export LANG="ja_JP.UTF-8"
+                export LC_ALL="ja_JP.UTF-8"
+                export WINEDLLOVERRIDES="xaudio2_7=n,b"
+                (
+                    sleep 1.5
+                    osascript -e 'tell application "System Events" to set frontmost of every process whose name contains "wine" to true' 2>/dev/null
+                ) &
+                script -q /tmp/wine_error.log "$WINE_BIN" "$TARGET_EXE" > /dev/null
                 """
                 try scriptContent.write(to: scriptURL, atomically: true, encoding: .utf8)
             }
@@ -110,6 +117,26 @@ class DropView: NSView {
             var attributes = try fileManager.attributesOfItem(atPath: scriptURL.path)
             attributes[.posixPermissions] = NSNumber(value: 0o755)
             try fileManager.setAttributes(attributes, ofItemAtPath: scriptURL.path)
+            
+            // アイコン抽出処理
+            let iconTmpDir = targetAppURL.appendingPathComponent("icon_temp")
+            try? fileManager.createDirectory(at: iconTmpDir, withIntermediateDirectories: true, attributes: nil)
+            
+            let extractProcess = Process()
+            extractProcess.executableURL = URL(fileURLWithPath: "/bin/bash")
+            let iconScript = """
+            export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+            wrestool -x -t 14 "\(exePath)" > "\(iconTmpDir.path)/icon.ico" 2>/dev/null
+            if [ -s "\(iconTmpDir.path)/icon.ico" ]; then
+                mkdir -p "\(iconTmpDir.path)/icon.iconset"
+                sips -s format png "\(iconTmpDir.path)/icon.ico" --out "\(iconTmpDir.path)/icon.iconset/icon_256x256.png" 2>/dev/null
+                iconutil -c icns "\(iconTmpDir.path)/icon.iconset" -o "\(resourcesURL.path)/AppIcon.icns" 2>/dev/null
+            fi
+            """
+            extractProcess.arguments = ["-c", iconScript]
+            try? extractProcess.run()
+            extractProcess.waitUntilExit()
+            try? fileManager.removeItem(at: iconTmpDir)
             
             // Info.plist生成
             let infoPlistURL = contentsURL.appendingPathComponent("Info.plist")
@@ -120,6 +147,8 @@ class DropView: NSView {
             <dict>
                 <key>CFBundleExecutable</key>
                 <string>launch_wrapper</string>
+                <key>CFBundleIconFile</key>
+                <string>AppIcon</string>
                 <key>CFBundleIdentifier</key>
                 <string>com.exmacbridge.\(exeName)</string>
                 <key>CFBundleName</key>
