@@ -102,30 +102,20 @@ class DropView: NSView {
                 export LANG="ja_JP.UTF-8"
                 export LC_ALL="ja_JP.UTF-8"
                 export WINEDLLOVERRIDES="xaudio2_7=n,b;dsound=b;dinput8=n,b;xinput1_3=n,b"
-                if [ ! -d "$WINEPREFIX" ]; then 
-                    mkdir -p "$WINEPREFIX/drive_c/windows/Fonts"
-                    ln -sf /System/Library/Fonts/* "$WINEPREFIX/drive_c/windows/Fonts/" 2>/dev/null
-                    ln -sf /System/Library/Fonts/Supplemental/* "$WINEPREFIX/drive_c/windows/Fonts/" 2>/dev/null
-                    echo 'REGEDIT4' > "$WINEPREFIX/font_fix.reg"
-                    echo '[HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows NT\\CurrentVersion\\FontSubstitutes]' >> "$WINEPREFIX/font_fix.reg"
-                    echo '"MS Gothic"="Osaka"' >> "$WINEPREFIX/font_fix.reg"
-                    echo '"MS PGothic"="Osaka"' >> "$WINEPREFIX/font_fix.reg"
-                    echo '"MS UI Gothic"="Osaka"' >> "$WINEPREFIX/font_fix.reg"
-                    echo '"MS Mincho"="Osaka"' >> "$WINEPREFIX/font_fix.reg"
-                    "$WINE_BIN" regedit "$WINEPREFIX/font_fix.reg" >/dev/null 2>&1
-                fi
                 export DISPLAY=:0
-                if [ ! -f "$WINEPREFIX/.font_copied" ]; then
-                    JP_FONT=$(find /System/Library/Fonts /System/Library/Fonts/Supplemental -name "*Hiragino*Sans*.ttc" -o -name "*Osaka*" 2>/dev/null | head -n 1)
-                    if [ ! -z "$JP_FONT" ]; then
-                        cp "$JP_FONT" "$WINEPREFIX/drive_c/windows/Fonts/msgothic.ttc"
-                        cp "$JP_FONT" "$WINEPREFIX/drive_c/windows/Fonts/msmincho.ttc"
-                        cp "$JP_FONT" "$WINEPREFIX/drive_c/windows/Fonts/msgothic.ttf"
-                        touch "$WINEPREFIX/.font_copied"
+                mkdir -p \"$WINEPREFIX/drive_c/windows/Fonts\"
+                if [ ! -f \"$WINEPREFIX/.font_copied\" ]; then
+                    JP_FONT=$(find /System/Library/Fonts /System/Library/Fonts/Supplemental -name '*.ttc' -o -name '*.ttf' 2>/dev/null | xargs -I{} basename {} | grep -i -E 'hiragino|pingfang|osaka' | head -n 1)
+                    JP_FONT_PATH=$(find /System/Library/Fonts /System/Library/Fonts/Supplemental -name \"$JP_FONT\" 2>/dev/null | head -n 1)
+                    if [ ! -z \"$JP_FONT_PATH\" ]; then
+                        cp \"$JP_FONT_PATH\" \"$WINEPREFIX/drive_c/windows/Fonts/msgothic.ttc\" 2>/dev/null
+                        cp \"$JP_FONT_PATH\" \"$WINEPREFIX/drive_c/windows/Fonts/msmincho.ttc\" 2>/dev/null
+                        cp \"$JP_FONT_PATH\" \"$WINEPREFIX/drive_c/windows/Fonts/YuGothic.ttf\" 2>/dev/null
+                        touch \"$WINEPREFIX/.font_copied\"
                     fi
                 fi
-                if [ -x "$APP_ROOT/MacOS/KeyMapper" ]; then
-                    "$APP_ROOT/MacOS/KeyMapper" "wine" &
+                if [ -x \"$APP_ROOT/MacOS/KeyMapper\" ]; then
+                    \"$APP_ROOT/MacOS/KeyMapper\" \"wine\" &
                     MAPPER_PID=$!
                 fi
                 (
