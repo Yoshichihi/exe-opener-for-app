@@ -1,24 +1,6 @@
 import Cocoa
 import CoreGraphics
-
-// ===========================
-// アクセシビリティ許可チェック
-// ===========================
-if !AXIsProcessTrusted() {
-    // 未許可の場合のみダイアログを出し、設定画面を自動で開く
-    let script = """
-    display dialog "キーボード操作を最適化するため、アクセシビリティ許可が必要です。\\n\\n設定画面が開きます。\\n「ExMac-Bridge（またはKeymapper）」のスイッチをONにして、アプリを再起動してください。" with title "初期セットアップのお願い" buttons {"設定を開く", "後で"} default button "設定を開く" with icon caution
-    if button returned of result is "設定を開く" then
-        do shell script "open 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'"
-    end if
-    """
-    let task = Process()
-    task.launchPath = "/usr/bin/osascript"
-    task.arguments = ["-e", script]
-    task.launch()
-    task.waitUntilExit()
-    exit(0) // 許可なしでも終了（ゲームは動く、変換だけ無効）
-}
+import ApplicationServices
 
 // ===========================
 // キーイベント変換ロジック
@@ -87,8 +69,28 @@ guard let tap = CGEvent.tapCreate(
     callback: callback,
     userInfo: nil
 ) else {
-    // tapCreate失敗 = 許可取り消しなど予期しない状態
-    exit(1)
+    // tapCreate失敗 = アクセシビリティが許可されていない場合のみここに来る
+    // 許可済みなのにここに来る場合は別の問題（無視して終了）
+    let trusted = AXIsProcessTrustedWithOptions(
+        [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: false] as CFDictionary
+    )
+    if !trusted {
+        // 本当に未許可の場合のみ設定画面へ案内
+        let script = """
+        set msg to "キーボード操作を最適化するため、アクセシビリティの許可が必要です。\\n\\n【設定手順】\\n1. 設定画面を開く\\n2. 「KeyMapper」または「ExMac-Bridge」を探す\\n3. スイッチをONにする\\n4. ゲームを再起動する"
+        display dialog msg with title "アクセシビリティ許可が必要です" buttons {"設定を開く", "後で"} default button "設定を開く" with icon caution
+        if button returned of result is "設定を開く" then
+            do shell script "open 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'"
+        end if
+        """
+        let task = Process()
+        task.launchPath = "/usr/bin/osascript"
+        task.arguments = ["-e", script]
+        task.launch()
+        task.waitUntilExit()
+    }
+    // 許可済みでもtapCreateが失敗する場合は静かに終了（ゲームの邪魔をしない）
+    exit(0)
 }
 
 let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
