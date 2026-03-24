@@ -32,22 +32,40 @@ mkdir -p "$WINEPREFIX/drive_c/windows/Fonts"
 # 描画サーバーの環境変数（Quartz/X11等に依存する場合）
 export DISPLAY=:0
 
-# ===== 文字化け対策: Macのフォントを物理コピー =====
-# WINEPREFIXの有無に関わらず.font_copiedフラグで制御
-# （既存プレフィックスでも確実に実行される）
-if [ ! -f "$WINEPREFIX/.font_copied" ]; then
-    # Hiragino Sans GBをフルパスで直接検索（-oオプションのパイプバグを回避）
-    JP_FONT_PATH=$(find /System/Library/Fonts -name "Hiragino Sans GB.ttc" 2>/dev/null | head -n 1)
-    # なければPingFangを試す
+# ===== 文字化け対策: フォントコピー＋Wineレジストリ直接登録 =====
+if [ ! -f "$WINEPREFIX/.font_registered" ]; then
+    # Step1: AppleSDGothicNeo（日本語フォント）をWine用にコピー
+    JP_FONT_PATH=$(find /System/Library/Fonts -name "AppleSDGothicNeo.ttc" 2>/dev/null | head -n 1)
     if [ -z "$JP_FONT_PATH" ]; then
-        JP_FONT_PATH=$(find /System/Library/Fonts -name "PingFang.ttc" 2>/dev/null | head -n 1)
+        JP_FONT_PATH=$(find /System/Library/Fonts -name "Hiragino Sans GB.ttc" 2>/dev/null | head -n 1)
     fi
     if [ ! -z "$JP_FONT_PATH" ]; then
         cp "$JP_FONT_PATH" "$WINEPREFIX/drive_c/windows/Fonts/msgothic.ttc" 2>/dev/null
         cp "$JP_FONT_PATH" "$WINEPREFIX/drive_c/windows/Fonts/msmincho.ttc" 2>/dev/null
-        cp "$JP_FONT_PATH" "$WINEPREFIX/drive_c/windows/Fonts/YuGothic.ttf" 2>/dev/null
-        touch "$WINEPREFIX/.font_copied"
+        cp "$JP_FONT_PATH" "$WINEPREFIX/drive_c/windows/Fonts/meiryo.ttc" 2>/dev/null
     fi
+    
+    # Step2: system.regにフォントエントリを直接Python書き込み（wine regedit不要）
+    SYSREG="$WINEPREFIX/system.reg"
+    if [ -f "$SYSREG" ]; then
+        python3 - "$SYSREG" << 'PYEOF'
+import sys, re, shutil
+path = sys.argv[1]
+with open(path, 'r', encoding='utf-8', errors='replace') as f:
+    content = f.read()
+section = '[Software\\\\Microsoft\\\\Windows NT\\\\CurrentVersion\\\\Fonts]'
+entries = '\n"MS Gothic (TrueType)"="msgothic.ttc"\n"MS PGothic (TrueType)"="msgothic.ttc"\n"MS UI Gothic (TrueType)"="msgothic.ttc"\n"MS Mincho (TrueType)"="msmincho.ttc"\n"MS PMincho (TrueType)"="msmincho.ttc"\n"Meiryo (TrueType)"="meiryo.ttc"\n"Meiryo UI (TrueType)"="meiryo.ttc"\n'
+if '"MS Gothic (TrueType)"' not in content:
+    idx = content.find(section)
+    if idx != -1:
+        eol = content.find('\n', idx)
+        content = content[:eol] + entries + content[eol:]
+        shutil.copy(path, path + '.bak')
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(content)
+PYEOF
+    fi
+    touch "$WINEPREFIX/.font_registered"
 fi
 
 # キーマッパーの起動
