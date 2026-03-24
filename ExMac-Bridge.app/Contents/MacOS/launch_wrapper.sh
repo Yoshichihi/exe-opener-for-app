@@ -53,16 +53,28 @@ import sys, re, shutil
 path = sys.argv[1]
 with open(path, 'r', encoding='utf-8', errors='replace') as f:
     content = f.read()
-section = '[Software\\\\Microsoft\\\\Windows NT\\\\CurrentVersion\\\\Fonts]'
-entries = '\n"MS Gothic (TrueType)"="msgothic.ttc"\n"MS PGothic (TrueType)"="msgothic.ttc"\n"MS UI Gothic (TrueType)"="msgothic.ttc"\n"MS Mincho (TrueType)"="msmincho.ttc"\n"MS PMincho (TrueType)"="msmincho.ttc"\n"Meiryo (TrueType)"="meiryo.ttc"\n"Meiryo UI (TrueType)"="meiryo.ttc"\n'
+
+# Fontsセクションにフォント登録
+font_section = '[Software\\\\Microsoft\\\\Windows NT\\\\CurrentVersion\\\\Fonts]'
+font_entries = '\n"MS Gothic (TrueType)"="msgothic.ttc"\n"MS PGothic (TrueType)"="msgothic.ttc"\n"MS UI Gothic (TrueType)"="msgothic.ttc"\n"MS Mincho (TrueType)"="msmincho.ttc"\n"MS PMincho (TrueType)"="msmincho.ttc"\n"Meiryo (TrueType)"="meiryo.ttc"\n"Meiryo UI (TrueType)"="meiryo.ttc"\n'
 if '"MS Gothic (TrueType)"' not in content:
-    idx = content.find(section)
+    idx = content.find(font_section)
     if idx != -1:
         eol = content.find('\n', idx)
-        content = content[:eol] + entries + content[eol:]
-        shutil.copy(path, path + '.bak')
-        with open(path, 'w', encoding='utf-8') as f:
-            f.write(content)
+        content = content[:eol] + font_entries + content[eol:]
+
+# FontSubstitutesセクションにArialやTahomaも日本語フォントへフォールバック
+subst_section = '[Software\\\\Microsoft\\\\Windows NT\\\\CurrentVersion\\\\FontSubstitutes]'
+subst_entries = '\n"Arial"="MS Gothic"\n"MS Shell Dlg"="MS Gothic"\n"MS Shell Dlg 2"="MS Gothic"\n"Tahoma"="MS Gothic"\n"@MS Gothic"="MS Gothic"\n"@Meiryo"="MS Gothic"\n'
+if '"Arial"="MS Gothic"' not in content:
+    idx2 = content.find(subst_section)
+    if idx2 != -1:
+        eol2 = content.find('\n', idx2)
+        content = content[:eol2] + subst_entries + content[eol2:]
+
+shutil.copy(path, path + '.bak')
+with open(path, 'w', encoding='utf-8') as f:
+    f.write(content)
 PYEOF
     fi
     touch "$WINEPREFIX/.font_registered"
