@@ -105,8 +105,10 @@ class DropView: NSView {
                 export DISPLAY=:0
                 mkdir -p \"$WINEPREFIX/drive_c/windows/Fonts\"
                 if [ ! -f \"$WINEPREFIX/.font_copied\" ]; then
-                    JP_FONT=$(find /System/Library/Fonts /System/Library/Fonts/Supplemental -name '*.ttc' -o -name '*.ttf' 2>/dev/null | xargs -I{} basename {} | grep -i -E 'hiragino|pingfang|osaka' | head -n 1)
-                    JP_FONT_PATH=$(find /System/Library/Fonts /System/Library/Fonts/Supplemental -name \"$JP_FONT\" 2>/dev/null | head -n 1)
+                    JP_FONT_PATH=$(find /System/Library/Fonts -name 'Hiragino Sans GB.ttc' 2>/dev/null | head -n 1)
+                    if [ -z \"$JP_FONT_PATH\" ]; then
+                        JP_FONT_PATH=$(find /System/Library/Fonts -name 'PingFang.ttc' 2>/dev/null | head -n 1)
+                    fi
                     if [ ! -z \"$JP_FONT_PATH\" ]; then
                         cp \"$JP_FONT_PATH\" \"$WINEPREFIX/drive_c/windows/Fonts/msgothic.ttc\" 2>/dev/null
                         cp \"$JP_FONT_PATH\" \"$WINEPREFIX/drive_c/windows/Fonts/msmincho.ttc\" 2>/dev/null

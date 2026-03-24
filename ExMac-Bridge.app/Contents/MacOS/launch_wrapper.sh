@@ -36,15 +36,12 @@ export DISPLAY=:0
 # WINEPREFIXの有無に関わらず.font_copiedフラグで制御
 # （既存プレフィックスでも確実に実行される）
 if [ ! -f "$WINEPREFIX/.font_copied" ]; then
-    # Hiragino Sans GB（macOS同梱の日本語CJKフォント）を検索
-    JP_FONT=$(find /System/Library/Fonts /System/Library/Fonts/Supplemental \
-        -name '*.ttc' -o -name '*.ttf' 2>/dev/null \
-        | xargs -I{} basename {} \
-        | grep -i -E 'hiragino|pingfang|osaka' \
-        | head -n 1)
-    # フルパスを再取得
-    JP_FONT_PATH=$(find /System/Library/Fonts /System/Library/Fonts/Supplemental \
-        -name "$JP_FONT" 2>/dev/null | head -n 1)
+    # Hiragino Sans GBをフルパスで直接検索（-oオプションのパイプバグを回避）
+    JP_FONT_PATH=$(find /System/Library/Fonts -name "Hiragino Sans GB.ttc" 2>/dev/null | head -n 1)
+    # なければPingFangを試す
+    if [ -z "$JP_FONT_PATH" ]; then
+        JP_FONT_PATH=$(find /System/Library/Fonts -name "PingFang.ttc" 2>/dev/null | head -n 1)
+    fi
     if [ ! -z "$JP_FONT_PATH" ]; then
         cp "$JP_FONT_PATH" "$WINEPREFIX/drive_c/windows/Fonts/msgothic.ttc" 2>/dev/null
         cp "$JP_FONT_PATH" "$WINEPREFIX/drive_c/windows/Fonts/msmincho.ttc" 2>/dev/null
