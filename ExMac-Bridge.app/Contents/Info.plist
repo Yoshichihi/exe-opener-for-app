@@ -5,13 +5,13 @@
     <key>CFBundleExecutable</key>
     <string>ExMac-Bridge</string>
     <key>CFBundleIdentifier</key>
-    <string>com.example.ExMacBridge</string>
+    <string>com.exmacbridge.packager.v3</string>
     <key>CFBundleName</key>
     <string>ExMac-Bridge</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>3.0</string>
     <key>LSMinimumSystemVersion</key>
     <string>10.10</string>
     <key>NSHighResolutionCapable</key>

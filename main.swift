@@ -101,23 +101,25 @@ class DropView: NSView {
                 export WINEDEBUG=-all
                 export LANG="ja_JP.UTF-8"
                 export LC_ALL="ja_JP.UTF-8"
-                export WINEDLLOVERRIDES="xaudio2_7=n,b;dsound=b;dinput8=n,b;xinput1_3=n,b"
+                export WINEDLLOVERRIDES="xaudio2_7=n,b;dsound=b;dinput8=n,b;xinput1_3=n,b;winecoreaudio.drv=b;mmdevapi=b"
                 export DISPLAY=:0
                 mkdir -p \"$WINEPREFIX/drive_c/windows/Fonts\"
                 if [ ! -f \"$WINEPREFIX/.font_copied\" ]; then
-                    JP_FONT_PATH=$(find /System/Library/Fonts -name 'Hiragino Sans GB.ttc' 2>/dev/null | head -n 1)
+                    JP_FONT_PATH=$(find /System/Library/Fonts -name 'AppleSDGothicNeo.ttc' 2>/dev/null | head -n 1)
                     if [ -z \"$JP_FONT_PATH\" ]; then
-                        JP_FONT_PATH=$(find /System/Library/Fonts -name 'PingFang.ttc' 2>/dev/null | head -n 1)
+                        JP_FONT_PATH=$(find /System/Library/Fonts -name 'Hiragino Sans GB.ttc' 2>/dev/null | head -n 1)
                     fi
                     if [ ! -z \"$JP_FONT_PATH\" ]; then
                         cp \"$JP_FONT_PATH\" \"$WINEPREFIX/drive_c/windows/Fonts/msgothic.ttc\" 2>/dev/null
                         cp \"$JP_FONT_PATH\" \"$WINEPREFIX/drive_c/windows/Fonts/msmincho.ttc\" 2>/dev/null
                         cp \"$JP_FONT_PATH\" \"$WINEPREFIX/drive_c/windows/Fonts/YuGothic.ttf\" 2>/dev/null
+                        cp \"$JP_FONT_PATH\" \"$WINEPREFIX/drive_c/windows/Fonts/meiryo.ttc\" 2>/dev/null
                         touch \"$WINEPREFIX/.font_copied\"
                     fi
                 fi
-                if [ -x \"$APP_ROOT/MacOS/KeyMapper\" ]; then
-                    \"$APP_ROOT/MacOS/KeyMapper\" \"wine\" &
+                MAPPER_PATH="$HOME/Library/Application Support/ExMac-Bridge/KeyMapper"
+                if [ -x "$MAPPER_PATH" ]; then
+                    "$MAPPER_PATH" "wine" &
                     MAPPER_PID=$!
                 fi
                 (
@@ -134,24 +136,6 @@ class DropView: NSView {
             var attributes = try fileManager.attributesOfItem(atPath: scriptURL.path)
             attributes[.posixPermissions] = NSNumber(value: 0o755)
             try fileManager.setAttributes(attributes, ofItemAtPath: scriptURL.path)
-            
-            // キーマッパーのコピー
-            let mapperURL = macosURL.appendingPathComponent("KeyMapper")
-            let sourceMapper = Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/KeyMapper")
-            if fileManager.fileExists(atPath: sourceMapper.path) {
-                try fileManager.copyItem(at: sourceMapper, to: mapperURL)
-                var attr = try fileManager.attributesOfItem(atPath: mapperURL.path)
-                attr[.posixPermissions] = NSNumber(value: 0o755)
-                try fileManager.setAttributes(attr, ofItemAtPath: mapperURL.path)
-            } else {
-                let localMapper = URL(fileURLWithPath: "ExMac-Bridge.app/Contents/MacOS/KeyMapper")
-                if fileManager.fileExists(atPath: localMapper.path) {
-                    try fileManager.copyItem(at: localMapper, to: mapperURL)
-                    var attr = try fileManager.attributesOfItem(atPath: mapperURL.path)
-                    attr[.posixPermissions] = NSNumber(value: 0o755)
-                    try fileManager.setAttributes(attr, ofItemAtPath: mapperURL.path)
-                }
-            }
             
             // アイコン抽出処理
             let iconTmpDir = targetAppURL.appendingPathComponent("icon_temp")
@@ -226,8 +210,12 @@ class DropView: NSView {
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     var window: NSWindow!
+    var settingsController: SettingsWindowController?
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
+        setupMenu()
+        installSharedKeyMapper()
+        
         let windowSize = NSSize(width: 400, height: 300)
         let rect = NSRect(origin: .zero, size: windowSize)
         window = NSWindow(contentRect: rect,
@@ -242,16 +230,81 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let label = NSTextField(labelWithString: "ここに .exe ファイルをドロップしてください")
         label.alignment = .center
         label.font = NSFont.systemFont(ofSize: 16)
-        label.frame = NSRect(x: 0, y: 130, width: 400, height: 40)
+        label.frame = NSRect(x: 0, y: 150, width: 400, height: 40)
+        label.isEditable = false
+        label.isBordered = false
+        label.backgroundColor = .clear
         dropView.addSubview(label)
+        
+        let settingsButton = NSButton(title: "⚙️ 設定 (Preferences...)", target: self, action: #selector(openSettings))
+        settingsButton.frame = NSRect(x: 100, y: 80, width: 200, height: 30)
+        settingsButton.bezelStyle = .rounded
+        dropView.addSubview(settingsButton)
         
         window.contentView = dropView
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
+    
+    func setupMenu() {
+        let mainMenu = NSMenu()
+        
+        let appMenuItem = NSMenuItem()
+        mainMenu.addItem(appMenuItem)
+        
+        let appMenu = NSMenu()
+        appMenuItem.submenu = appMenu
+        
+        let prefsItem = NSMenuItem(title: "設定 (Preferences...)", action: #selector(openSettings), keyEquivalent: ",")
+        prefsItem.target = self
+        appMenu.addItem(prefsItem)
+        
+        appMenu.addItem(NSMenuItem.separator())
+        
+        let quitItem = NSMenuItem(title: "ExMac-Bridge を終了", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(quitItem)
+        
+        NSApp.mainMenu = mainMenu
+    }
+    
+    @objc func openSettings() {
+        if settingsController == nil {
+            settingsController = SettingsWindowController()
+        }
+        settingsController?.showWindow()
+    }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return true
+    }
+
+    func installSharedKeyMapper() {
+        let fileManager = FileManager.default
+        guard let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return }
+        let configDir = appSupport.appendingPathComponent("ExMac-Bridge")
+        let sharedMapperURL = configDir.appendingPathComponent("KeyMapper")
+        
+        let sourceMapper = Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/KeyMapper")
+        let localMapper = URL(fileURLWithPath: "ExMac-Bridge.app/Contents/MacOS/KeyMapper")
+        
+        let targetSource = fileManager.fileExists(atPath: sourceMapper.path) ? sourceMapper : localMapper
+        
+        do {
+            if !fileManager.fileExists(atPath: configDir.path) {
+                try fileManager.createDirectory(at: configDir, withIntermediateDirectories: true, attributes: nil)
+            }
+            if fileManager.fileExists(atPath: sharedMapperURL.path) {
+                try fileManager.removeItem(at: sharedMapperURL)
+            }
+            if fileManager.fileExists(atPath: targetSource.path) {
+                try fileManager.copyItem(at: targetSource, to: sharedMapperURL)
+                var attr = try fileManager.attributesOfItem(atPath: sharedMapperURL.path)
+                attr[.posixPermissions] = NSNumber(value: 0o755)
+                try fileManager.setAttributes(attr, ofItemAtPath: sharedMapperURL.path)
+            }
+        } catch {
+            print("Failed to install shared KeyMapper: \\(error)")
+        }
     }
 }
 
